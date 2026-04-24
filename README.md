@@ -41,3 +41,7 @@ The app state is stored through API endpoint `/api/state`.
 See source-of-truth and release process:
 
 `/Users/bob/Documents/Apps/skanban/PROTOCOL_SOURCE_OF_TRUTH.md`
+
+VPS deploy command (from git):
+
+`cd /home/ubuntu/board && bash scripts/deploy_from_git.sh`

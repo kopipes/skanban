@@ -25,9 +25,12 @@ Effective date: 2026-04-24
 1. Ubah code lokal.
 2. Test lokal.
 3. Commit dan push ke GitHub (branch kerja atau `master`, sesuai kebijakan tim).
-4. Pull/update code di VPS (`/home/ubuntu/board`) dari GitHub atau sync artifact.
-5. Restart service:
-   - `sudo systemctl restart board.service`
+4. Deploy di VPS **dari GitHub** (jangan upload manual file code):
+   - `cd /home/ubuntu/board && bash scripts/deploy_from_git.sh`
+5. Script deploy akan:
+   - backup `skanban.db` ke folder `backups/`
+   - `git fetch` + `git reset --hard origin/master`
+   - restart `board.service`
 6. Verifikasi:
    - `sudo systemctl status board.service`
    - `curl -sS https://board.devop.my.id/api/health`

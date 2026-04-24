@@ -13,6 +13,10 @@
   --danger: #d9504b;
 }
 
+html {
+  font-size: 88%;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -20,7 +24,7 @@
 body {
   margin: 0;
   font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
-  font-size: 15px;
+  font-size: 0.9375rem;
   background: var(--bg);
   color: var(--text);
 }
@@ -62,7 +66,39 @@ h1 {
 
 .header-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 14px;
+  flex-wrap: wrap;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-search {
+  margin-right: 2px;
+  flex-wrap: nowrap;
+}
+
+.search-input {
+  width: min(28vw, 420px);
+  min-width: 220px;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  background: #f7f7f4;
+  color: #303331;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+}
+
+.search-meta {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 button {
@@ -126,6 +162,19 @@ button {
   margin-bottom: 16px;
 }
 
+.overview-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.overview-row .view-menu {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
 .menu-btn {
   border: none;
   background: transparent;
@@ -175,6 +224,32 @@ button {
 
 .desc.active {
   color: var(--green);
+}
+
+.overview-row .stats-grid {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.overview-row .stat-card {
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.overview-row .stat-card h3 {
+  font-size: 1.25rem;
+}
+
+.overview-row .stat-card .label {
+  margin-top: 0;
+  font-size: 0.9rem;
+}
+
+.overview-row .stat-card .desc {
+  margin-top: 1px;
+  font-size: 0.72rem;
 }
 
 .project-tabs {
@@ -289,6 +364,13 @@ button {
   display: grid;
   grid-template-columns: repeat(4, minmax(270px, 1fr));
   gap: 18px;
+}
+
+.board-search-meta {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .data-tools {
@@ -617,8 +699,8 @@ textarea {
 }
 
 @media (max-width: 1250px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, minmax(210px, 1fr));
+  .overview-row .stats-grid {
+    grid-template-columns: repeat(4, minmax(102px, 1fr));
   }
 
   .board-grid {
@@ -648,6 +730,18 @@ textarea {
   .header-actions {
     width: 100%;
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  .header-search {
+    width: 100%;
+    margin-right: 0;
+    flex-wrap: wrap;
   }
 
   .outline-btn,
@@ -659,6 +753,16 @@ textarea {
   .board-grid,
   .modal-grid {
     grid-template-columns: 1fr;
+  }
+
+  .overview-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .overview-row .stats-grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 
   .data-tools {

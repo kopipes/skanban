@@ -16,13 +16,24 @@
           </h1>
         </div>
         <div class="header-actions">
+          <section class="search-row header-search" aria-label="Search projects and details">
+            <input
+              id="project-search"
+              class="search-input"
+              type="search"
+              placeholder="Search project, description, notes, task details..."
+            />
+            <button id="clear-search" class="mini-btn" type="button">Clear</button>
+            <span id="search-meta" class="search-meta" aria-live="polite"></span>
+          </section>
           <button id="open-project-modal" class="outline-btn">+ New Project</button>
           <button id="open-task-modal" class="outline-btn">+ Add Task</button>
         </div>
       </header>
-
-      <section id="view-menu" class="view-menu"></section>
-      <section id="stats-grid" class="stats-grid"></section>
+      <section class="overview-row">
+        <section id="view-menu" class="view-menu"></section>
+        <section id="stats-grid" class="stats-grid"></section>
+      </section>
       <section id="project-tabs" class="project-tabs"></section>
       <section id="project-line" class="project-line"></section>
       <section id="board-grid" class="board-grid"></section>

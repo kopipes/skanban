@@ -22,6 +22,7 @@ let stateReady = false;
 let draggingTaskId = null;
 let draggingProjectId = null;
 let backupFiles = [];
+let projectSearchQuery = "";
 
 const statsGrid = document.getElementById("stats-grid");
 const viewMenu = document.getElementById("view-menu");
@@ -32,6 +33,9 @@ const backupButton = document.getElementById("backup-btn");
 const restoreSelect = document.getElementById("restore-select");
 const restoreButton = document.getElementById("restore-btn");
 const backupStatus = document.getElementById("backup-status");
+const projectSearchInput = document.getElementById("project-search");
+const clearSearchButton = document.getElementById("clear-search");
+const searchMeta = document.getElementById("search-meta");
 
 const openProjectModalButton = document.getElementById("open-project-modal");
 const openTaskModalButton = document.getElementById("open-task-modal");
@@ -70,6 +74,21 @@ const deleteTaskButton = document.getElementById("delete-task-btn");
 
 openProjectModalButton.addEventListener("click", () => {
   openProjectModal();
+});
+
+projectSearchInput.addEventListener("input", () => {
+  projectSearchQuery = projectSearchInput.value.trim();
+  render();
+});
+
+clearSearchButton.addEventListener("click", () => {
+  if (!projectSearchQuery && !projectSearchInput.value.trim()) {
+    return;
+  }
+  projectSearchInput.value = "";
+  projectSearchQuery = "";
+  render();
+  projectSearchInput.focus();
 });
 
 openTaskModalButton.addEventListener("click", () => {
@@ -490,14 +509,16 @@ boardGrid.addEventListener("dragend", () => {
 });
 
 function render() {
-  const changedSelection = ensureSelectionForCurrentView();
+  const visibleProjects = getVisibleProjects(currentProjectView);
+  const changedSelection = ensureSelectionForCurrentView(visibleProjects);
   if (changedSelection) {
     saveState();
   }
-  const project = getSelectedProject();
+  const project = getSelectedProject(visibleProjects);
   renderViewMenu();
+  renderSearchMeta(visibleProjects);
   renderStats(project);
-  renderProjectTabs();
+  renderProjectTabs(visibleProjects);
   renderProjectLine(project);
   renderBoard(project);
   openTaskModalButton.disabled = currentProjectView === "archive" || !project;
@@ -559,14 +580,21 @@ function renderStats(project) {
   `;
 }
 
-function renderProjectTabs() {
-  const visibleProjects = getProjectsByView(currentProjectView);
+function renderProjectTabs(visibleProjects = getVisibleProjects(currentProjectView)) {
+  const hasSearch = Boolean(getNormalizedSearchQuery());
 
   if (!visibleProjects.length) {
-    projectTabs.innerHTML =
-      currentProjectView === "active"
-        ? `<button class="project-pill" data-action="new-project">+ New Project</button>`
-        : `<p class="project-desc">No archived projects yet.</p>`;
+    if (hasSearch) {
+      projectTabs.innerHTML = `
+        <p class="project-desc">No project found for "${escapeHtml(projectSearchQuery)}".</p>
+        ${currentProjectView === "active" ? `<button class="project-pill" data-action="new-project">+ New Project</button>` : ""}
+      `;
+    } else {
+      projectTabs.innerHTML =
+        currentProjectView === "active"
+          ? `<button class="project-pill" data-action="new-project">+ New Project</button>`
+          : `<p class="project-desc">No archived projects yet.</p>`;
+    }
     return;
   }
 
@@ -588,10 +616,14 @@ function renderProjectTabs() {
 
 function renderProjectLine(project) {
   if (!project) {
-    projectLine.innerHTML =
-      currentProjectView === "archive"
-        ? `<p class="project-desc">Completed projects will appear in archive.</p>`
-        : `<p class="project-desc">Create your first project to start the board.</p>`;
+    if (projectSearchQuery) {
+      projectLine.innerHTML = `<p class="project-desc">Try another keyword or clear search.</p>`;
+    } else {
+      projectLine.innerHTML =
+        currentProjectView === "archive"
+          ? `<p class="project-desc">Completed projects will appear in archive.</p>`
+          : `<p class="project-desc">Create your first project to start the board.</p>`;
+    }
     return;
   }
 
@@ -609,9 +641,23 @@ function renderBoard(project) {
     return;
   }
 
+  const query = getNormalizedSearchQuery();
+  const searchActive = Boolean(query);
+  const projectFieldMatch = searchActive ? matchesProjectFields(project, query) : false;
   const readOnly = currentProjectView === "archive";
-  boardGrid.innerHTML = BOARD_COLUMNS.map((column) => {
-    const tasks = project.tasks.filter((task) => task.status === column.key);
+  const matchingTaskIds = new Set(
+    !searchActive || projectFieldMatch
+      ? project.tasks.map((task) => task.id)
+      : project.tasks.filter((task) => matchesTaskSearch(task, query)).map((task) => task.id)
+  );
+
+  const matchingTaskCount = matchingTaskIds.size;
+  const searchHint = searchActive
+    ? `<div class="board-search-meta">Search result: ${matchingTaskCount} matching tasks in ${escapeHtml(project.name)}</div>`
+    : "";
+
+  boardGrid.innerHTML = `${searchHint}${BOARD_COLUMNS.map((column) => {
+    const tasks = project.tasks.filter((task) => task.status === column.key && matchingTaskIds.has(task.id));
     return `
       <article class="board-col" data-status="${column.key}">
         <div class="col-head">
@@ -622,12 +668,12 @@ function renderBoard(project) {
           <span class="count-pill">${tasks.length}</span>
         </div>
         <div class="tasks" data-status="${column.key}">
-          ${tasks.length ? tasks.map((task) => renderTaskCard(task, readOnly)).join("") : `<p class="empty">No task</p>`}
+          ${tasks.length ? tasks.map((task) => renderTaskCard(task, readOnly)).join("") : `<p class="empty">${searchActive ? "No matching task" : "No task"}</p>`}
         </div>
         ${readOnly ? "" : `<button class="add-task-col" data-action="add-task-column" data-status="${column.key}">+ add task</button>`}
       </article>
     `;
-  }).join("");
+  }).join("")}`;
 }
 
 function renderTaskCard(task, readOnly = false) {
@@ -785,8 +831,8 @@ function openTaskModal(task = null, defaultStatus = "todo") {
   taskModal.showModal();
 }
 
-function getSelectedProject() {
-  return getProjectsByView(currentProjectView).find((project) => project.id === state.selectedProjectId) || null;
+function getSelectedProject(visibleProjects = getVisibleProjects(currentProjectView)) {
+  return visibleProjects.find((project) => project.id === state.selectedProjectId) || null;
 }
 
 function getProjectsByView(view) {
@@ -796,8 +842,16 @@ function getProjectsByView(view) {
   return state.projects.filter((project) => !isProjectArchived(project));
 }
 
-function ensureSelectionForCurrentView() {
-  const visibleProjects = getProjectsByView(currentProjectView);
+function getVisibleProjects(view) {
+  const projects = getProjectsByView(view);
+  const query = getNormalizedSearchQuery();
+  if (!query) {
+    return projects;
+  }
+  return projects.filter((project) => matchesProjectSearch(project, query));
+}
+
+function ensureSelectionForCurrentView(visibleProjects = getVisibleProjects(currentProjectView)) {
   if (!visibleProjects.length) {
     if (state.selectedProjectId !== "") {
       state.selectedProjectId = "";
@@ -812,6 +866,18 @@ function ensureSelectionForCurrentView() {
   }
   state.selectedProjectId = visibleProjects[0].id;
   return true;
+}
+
+function renderSearchMeta(visibleProjects) {
+  const totalProjects = getProjectsByView(currentProjectView).length;
+  if (!projectSearchQuery) {
+    searchMeta.textContent = `${totalProjects} projects`;
+    clearSearchButton.disabled = true;
+    return;
+  }
+
+  searchMeta.textContent = `${visibleProjects.length} / ${totalProjects} projects`;
+  clearSearchButton.disabled = false;
 }
 
 function isProjectArchived(project) {
@@ -1316,6 +1382,50 @@ function labelProjectStatus(status) {
     completed: "Completed",
   };
   return map[status] || "Planning";
+}
+
+function getNormalizedSearchQuery() {
+  return normalizeSearchValue(projectSearchQuery);
+}
+
+function matchesProjectSearch(project, query) {
+  if (matchesProjectFields(project, query)) {
+    return true;
+  }
+  return project.tasks.some((task) => matchesTaskSearch(task, query));
+}
+
+function matchesProjectFields(project, query) {
+  const projectFields = [
+    project.name,
+    project.description,
+    project.notes,
+    project.deadline,
+    project.status,
+    labelProjectStatus(project.status),
+  ];
+  return projectFields.some((value) => normalizeSearchValue(value).includes(query));
+}
+
+function matchesTaskSearch(task, query) {
+  const taskFields = [
+    task.title,
+    task.description,
+    task.status,
+    clampProgress(task.progress),
+    task.progressDetail,
+    task.notes,
+    task.type,
+    task.priority,
+  ];
+  return taskFields.some((value) => normalizeSearchValue(value).includes(query));
+}
+
+function normalizeSearchValue(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .trim();
 }
 
 function truncate(value, maxLength) {

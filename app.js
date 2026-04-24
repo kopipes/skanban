@@ -10,14 +10,14 @@ const BOARD_COLUMNS = [
   { key: "review", label: "Review", color: "on_hold" },
   { key: "done", label: "Done", color: "completed" },
 ];
-const HISTORY_LIMIT = 40;
 const DELETE_PROJECT_CONFIRM_TEXT = "DELETE PROJECT";
 const DELETE_PROJECT_PASSWORD = "Shushitei99";
 
 let state = { selectedProjectId: "", projects: [] };
-const undoStack = [];
 let currentProjectView = "active";
 let stateReady = false;
+let draggingTaskId = null;
+let draggingProjectId = null;
 
 const statsGrid = document.getElementById("stats-grid");
 const viewMenu = document.getElementById("view-menu");
@@ -25,7 +25,6 @@ const projectTabs = document.getElementById("project-tabs");
 const projectLine = document.getElementById("project-line");
 const boardGrid = document.getElementById("board-grid");
 
-const undoActionButton = document.getElementById("undo-action");
 const openProjectModalButton = document.getElementById("open-project-modal");
 const openTaskModalButton = document.getElementById("open-task-modal");
 
@@ -60,13 +59,6 @@ const taskPriorityInput = document.getElementById("task-priority");
 const taskProgressDetailInput = document.getElementById("task-progress-detail");
 const taskNotesInput = document.getElementById("task-notes");
 const deleteTaskButton = document.getElementById("delete-task-btn");
-
-undoActionButton.addEventListener("click", () => {
-  if (!stateReady) {
-    return;
-  }
-  undoLastAction();
-});
 
 openProjectModalButton.addEventListener("click", () => {
   openProjectModal();
@@ -140,7 +132,6 @@ projectDeleteForm.addEventListener("submit", (event) => {
     return;
   }
 
-  pushUndoSnapshot();
   state.projects.splice(index, 1);
   if (state.selectedProjectId === projectId) {
     state.selectedProjectId = "";
@@ -165,7 +156,6 @@ projectForm.addEventListener("submit", (event) => {
   if (editingId) {
     const project = state.projects.find((item) => item.id === editingId);
     if (project) {
-      pushUndoSnapshot();
       project.name = name;
       project.description = projectDescriptionInput.value.trim();
       project.status = projectStatusInput.value;
@@ -174,7 +164,6 @@ projectForm.addEventListener("submit", (event) => {
       syncProjectArchive(project);
     }
   } else {
-    pushUndoSnapshot();
     const newProject = {
       id: uid(),
       name,
@@ -229,11 +218,9 @@ taskForm.addEventListener("submit", (event) => {
   if (editingId) {
     const task = project.tasks.find((item) => item.id === editingId);
     if (task) {
-      pushUndoSnapshot();
       Object.assign(task, payload);
     }
   } else {
-    pushUndoSnapshot();
     project.tasks.unshift({
       id: uid(),
       createdAt: Date.now(),
@@ -259,7 +246,6 @@ deleteTaskButton.addEventListener("click", () => {
   if (!found) {
     return;
   }
-  pushUndoSnapshot();
   project.tasks = project.tasks.filter((item) => item.id !== editingId);
   saveState();
   taskModal.close();
@@ -286,6 +272,56 @@ projectTabs.addEventListener("click", (event) => {
     saveState();
     render();
   }
+});
+
+projectTabs.addEventListener("dragstart", (event) => {
+  if (!stateReady) {
+    return;
+  }
+  const pill = event.target.closest(".project-pill[data-project-id]");
+  if (!pill) {
+    return;
+  }
+  draggingProjectId = pill.dataset.projectId;
+  pill.classList.add("dragging");
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", draggingProjectId);
+});
+
+projectTabs.addEventListener("dragover", (event) => {
+  if (!stateReady || !draggingProjectId) {
+    return;
+  }
+  const pill = event.target.closest(".project-pill[data-project-id]");
+  if (!pill || pill.dataset.projectId === draggingProjectId) {
+    return;
+  }
+  event.preventDefault();
+  clearProjectDropMarkers();
+  pill.classList.add(isPointerAfterX(event, pill) ? "drop-after" : "drop-before");
+});
+
+projectTabs.addEventListener("drop", (event) => {
+  if (!stateReady || !draggingProjectId) {
+    return;
+  }
+  const targetPill = event.target.closest(".project-pill[data-project-id]");
+  clearProjectDropMarkers();
+  if (!targetPill || targetPill.dataset.projectId === draggingProjectId) {
+    draggingProjectId = null;
+    return;
+  }
+
+  event.preventDefault();
+  reorderProjectByDrop(draggingProjectId, targetPill.dataset.projectId, isPointerAfterX(event, targetPill));
+  draggingProjectId = null;
+  saveState();
+  render();
+});
+
+projectTabs.addEventListener("dragend", () => {
+  draggingProjectId = null;
+  clearProjectDropMarkers();
 });
 
 projectLine.addEventListener("click", (event) => {
@@ -331,22 +367,95 @@ boardGrid.addEventListener("click", (event) => {
     if (task) {
       openTaskModal(task);
     }
+  }
+});
+
+boardGrid.addEventListener("dragstart", (event) => {
+  if (!stateReady || currentProjectView === "archive") {
+    return;
+  }
+  const taskCard = event.target.closest(".task-card[data-task-id]");
+  if (!taskCard) {
+    return;
+  }
+  draggingTaskId = taskCard.dataset.taskId;
+  taskCard.classList.add("dragging");
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", draggingTaskId);
+});
+
+boardGrid.addEventListener("dragover", (event) => {
+  if (!stateReady || !draggingTaskId || currentProjectView === "archive") {
+    return;
+  }
+  const boardCol = event.target.closest(".board-col[data-status]");
+  if (!boardCol) {
+    return;
+  }
+  event.preventDefault();
+  clearTaskDropMarkers();
+  const overCard = event.target.closest(".task-card[data-task-id]");
+  if (overCard && overCard.dataset.taskId !== draggingTaskId) {
+    overCard.classList.add(isPointerAfterY(event, overCard) ? "drop-after" : "drop-before");
+    return;
+  }
+  const tasksContainer = boardCol.querySelector(".tasks");
+  if (tasksContainer) {
+    tasksContainer.classList.add("drop-column");
+  }
+});
+
+boardGrid.addEventListener("drop", (event) => {
+  if (!stateReady || !draggingTaskId || currentProjectView === "archive") {
+    return;
+  }
+  const boardCol = event.target.closest(".board-col[data-status]");
+  const project = getSelectedProject();
+  clearTaskDropMarkers();
+  if (!boardCol || !project) {
+    draggingTaskId = null;
+    return;
+  }
+  event.preventDefault();
+
+  const movedIndex = project.tasks.findIndex((task) => task.id === draggingTaskId);
+  if (movedIndex === -1) {
+    draggingTaskId = null;
     return;
   }
 
-  if (button.dataset.action === "advance-task") {
-    const task = project.tasks.find((item) => item.id === button.dataset.taskId);
-    if (!task) {
-      return;
-    }
-    pushUndoSnapshot();
-    task.status = nextStatus(task.status);
-    if (task.status === "done") {
-      task.progress = 100;
-    }
-    saveState();
-    render();
+  const destinationStatus = boardCol.dataset.status;
+  const targetCard = event.target.closest(".task-card[data-task-id]");
+  if (targetCard && targetCard.dataset.taskId === draggingTaskId) {
+    draggingTaskId = null;
+    return;
   }
+
+  const movedTask = project.tasks[movedIndex];
+  project.tasks.splice(movedIndex, 1);
+
+  movedTask.status = destinationStatus;
+  if (destinationStatus === "done") {
+    movedTask.progress = 100;
+  }
+
+  let insertIndex = findInsertIndexForStatus(project.tasks, destinationStatus);
+  if (targetCard && targetCard.dataset.taskId !== draggingTaskId) {
+    const targetIndex = project.tasks.findIndex((task) => task.id === targetCard.dataset.taskId);
+    if (targetIndex !== -1) {
+      insertIndex = targetIndex + (isPointerAfterY(event, targetCard) ? 1 : 0);
+    }
+  }
+
+  project.tasks.splice(insertIndex, 0, movedTask);
+  draggingTaskId = null;
+  saveState();
+  render();
+});
+
+boardGrid.addEventListener("dragend", () => {
+  draggingTaskId = null;
+  clearTaskDropMarkers();
 });
 
 function render() {
@@ -360,42 +469,7 @@ function render() {
   renderProjectTabs();
   renderProjectLine(project);
   renderBoard(project);
-  updateUndoButton();
   openTaskModalButton.disabled = currentProjectView === "archive" || !project;
-}
-
-function undoLastAction() {
-  if (!undoStack.length) {
-    return;
-  }
-  state = undoStack.pop();
-  saveState();
-  if (projectModal.open) {
-    projectModal.close();
-  }
-  if (taskModal.open) {
-    taskModal.close();
-  }
-  if (projectDeleteModal.open) {
-    projectDeleteModal.close();
-  }
-  render();
-}
-
-function pushUndoSnapshot() {
-  undoStack.push(cloneState(state));
-  if (undoStack.length > HISTORY_LIMIT) {
-    undoStack.shift();
-  }
-}
-
-function cloneState(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function updateUndoButton() {
-  undoActionButton.disabled = undoStack.length === 0;
-  undoActionButton.textContent = undoStack.length === 0 ? "Back" : `Back (${undoStack.length})`;
 }
 
 function renderViewMenu() {
@@ -469,7 +543,7 @@ function renderProjectTabs() {
       .map((project) => {
         const selected = project.id === state.selectedProjectId ? "selected" : "";
         return `
-          <button class="project-pill ${selected}" data-project-id="${project.id}">
+          <button class="project-pill ${selected}" data-project-id="${project.id}" draggable="true">
             ${escapeHtml(project.name)}
             <span class="dot ${project.status}"></span>
           </button>
@@ -507,7 +581,7 @@ function renderBoard(project) {
   boardGrid.innerHTML = BOARD_COLUMNS.map((column) => {
     const tasks = project.tasks.filter((task) => task.status === column.key);
     return `
-      <article class="board-col">
+      <article class="board-col" data-status="${column.key}">
         <div class="col-head">
           <div class="col-title">
             <span class="dot ${column.color}"></span>
@@ -515,7 +589,7 @@ function renderBoard(project) {
           </div>
           <span class="count-pill">${tasks.length}</span>
         </div>
-        <div class="tasks">
+        <div class="tasks" data-status="${column.key}">
           ${tasks.length ? tasks.map((task) => renderTaskCard(task, readOnly)).join("") : `<p class="empty">No task</p>`}
         </div>
         ${readOnly ? "" : `<button class="add-task-col" data-action="add-task-column" data-status="${column.key}">+ add task</button>`}
@@ -525,9 +599,8 @@ function renderBoard(project) {
 }
 
 function renderTaskCard(task, readOnly = false) {
-  const canAdvance = task.status !== "done";
   return `
-    <article class="task-card">
+    <article class="task-card" data-task-id="${task.id}" draggable="${readOnly ? "false" : "true"}">
       <h4>${escapeHtml(task.title)}</h4>
       <p class="task-desc">${escapeHtml(truncate(task.description || "No description", 90))}</p>
       <div class="task-meta">
@@ -551,15 +624,64 @@ function renderTaskCard(task, readOnly = false) {
           ? ""
           : `<div class="task-actions">
               <button class="link-btn" data-action="edit-task" data-task-id="${task.id}">Details</button>
-              ${
-                canAdvance
-                  ? `<button class="link-btn" data-action="advance-task" data-task-id="${task.id}">Move Next</button>`
-                  : ""
-              }
             </div>`
       }
     </article>
   `;
+}
+
+function isPointerAfterY(event, element) {
+  const rect = element.getBoundingClientRect();
+  return event.clientY > rect.top + rect.height / 2;
+}
+
+function isPointerAfterX(event, element) {
+  const rect = element.getBoundingClientRect();
+  return event.clientX > rect.left + rect.width / 2;
+}
+
+function clearTaskDropMarkers() {
+  document.querySelectorAll(".task-card.drop-before, .task-card.drop-after").forEach((element) => {
+    element.classList.remove("drop-before", "drop-after");
+  });
+  document.querySelectorAll(".tasks.drop-column").forEach((element) => {
+    element.classList.remove("drop-column");
+  });
+  document.querySelectorAll(".task-card.dragging").forEach((element) => {
+    element.classList.remove("dragging");
+  });
+}
+
+function clearProjectDropMarkers() {
+  document.querySelectorAll(".project-pill.drop-before, .project-pill.drop-after").forEach((element) => {
+    element.classList.remove("drop-before", "drop-after");
+  });
+  document.querySelectorAll(".project-pill.dragging").forEach((element) => {
+    element.classList.remove("dragging");
+  });
+}
+
+function findInsertIndexForStatus(tasks, status) {
+  let lastMatchIndex = -1;
+  tasks.forEach((task, index) => {
+    if (task.status === status) {
+      lastMatchIndex = index;
+    }
+  });
+  return lastMatchIndex === -1 ? tasks.length : lastMatchIndex + 1;
+}
+
+function reorderProjectByDrop(draggedId, targetId, placeAfter) {
+  const fromIndex = state.projects.findIndex((project) => project.id === draggedId);
+  const targetIndex = state.projects.findIndex((project) => project.id === targetId);
+  if (fromIndex === -1 || targetIndex === -1 || fromIndex === targetIndex) {
+    return;
+  }
+
+  const [draggedProject] = state.projects.splice(fromIndex, 1);
+  const adjustedTargetIndex = state.projects.findIndex((project) => project.id === targetId);
+  const insertIndex = adjustedTargetIndex + (placeAfter ? 1 : 0);
+  state.projects.splice(insertIndex, 0, draggedProject);
 }
 
 function openDeleteProjectModal(projectId) {
@@ -672,15 +794,6 @@ function calcProjectProgress(project) {
   return Math.round(total / project.tasks.length);
 }
 
-function nextStatus(status) {
-  const order = ["todo", "in_progress", "review", "done"];
-  const index = order.indexOf(status);
-  if (index === -1 || index === order.length - 1) {
-    return "done";
-  }
-  return order[index + 1];
-}
-
 async function initApp() {
   renderLoadingState();
   try {
@@ -716,7 +829,6 @@ function renderLoadingState() {
   `;
   boardGrid.innerHTML = "";
   openTaskModalButton.disabled = true;
-  undoActionButton.disabled = true;
 }
 
 async function fetchStateFromServer() {

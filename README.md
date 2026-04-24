@@ -23,10 +23,11 @@ python3 server.py --host 127.0.0.1 --port 4173
 4. Select project from top project tabs.
 5. Click `+ Add Task` (or `+ add task` in each column).
 6. Click `Details` on task card to update status/progress/detail/notes.
-7. If you click a wrong action, use `Back` button in header to undo recent changes.
-8. Use top menu `Active` / `Archive` to switch project lists.
-9. Project with status `Completed` will automatically move to `Archive`.
-10. Delete project is available in project `Details`, with required confirmation text `DELETE PROJECT` and password `Shushitei99`.
+7. Drag task cards to move across columns or reorder inside the same column.
+8. Drag project tabs to reorder project sequence.
+9. Use top menu `Active` / `Archive` to switch project lists.
+10. Project with status `Completed` will automatically move to `Archive`.
+11. Delete project is available in project `Details`, with required confirmation text `DELETE PROJECT` and password `Shushitei99`.
 
 ## Data
 

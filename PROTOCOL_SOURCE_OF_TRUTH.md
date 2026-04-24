@@ -12,8 +12,12 @@ Effective date: 2026-04-24
 
 1. Semua perubahan aplikasi harus masuk ke GitHub dulu (commit + push), baru deploy ke VPS.
 2. Semua perubahan data produksi dilakukan di VPS (via aplikasi atau SQL di VPS), bukan dari lokal.
-3. Sebelum perubahan database manual/schema, wajib backup dulu.
-4. Deploy harus non-disruptive:
+3. Jika ada perubahan yang berpotensi mempengaruhi flow aplikasi atau database (code path kritikal, config runtime, schema, atau data mass update), **wajib backup dulu sebelum proceed**.
+4. Minimal backup yang wajib sebelum proceed:
+   - backup DB: `cp /home/ubuntu/board/skanban.db /home/ubuntu/board/backups/skanban_YYYYMMDD_HHMMSS.db`
+   - backup info release: simpan commit hash yang akan/deployed.
+5. Setiap perubahan high-risk harus punya langkah rollback yang jelas sebelum dieksekusi.
+6. Deploy harus non-disruptive:
    - gunakan service terpisah (`board.service`)
    - validasi `nginx -t` sebelum reload
    - jangan sentuh config domain lain.
@@ -81,7 +85,7 @@ Effective date: 2026-04-24
 
 1. Code sudah pushed ke GitHub.
 2. Jika ada migration: script ada di GitHub.
-3. Backup DB produksi sudah dibuat (jika ada perubahan DB manual/schema).
+3. Jika perubahan berpotensi mempengaruhi flow/DB: backup produksi sudah dibuat **sebelum** eksekusi.
 4. Deploy sukses, service sehat.
 5. Domain `https://board.devop.my.id` sehat.
 6. Catat release note singkat (commit hash + waktu deploy + operator).

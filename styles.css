@@ -197,6 +197,23 @@ button {
   border-color: var(--brand);
 }
 
+.project-pill[draggable="true"] {
+  cursor: grab;
+}
+
+.project-pill.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.project-pill.drop-before {
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.project-pill.drop-after {
+  box-shadow: inset -3px 0 0 var(--brand);
+}
+
 .dot {
   width: 11px;
   height: 11px;
@@ -313,6 +330,29 @@ button {
   border: 1px solid var(--stroke);
   border-radius: 16px;
   padding: 16px;
+}
+
+.task-card[draggable="true"] {
+  cursor: grab;
+}
+
+.task-card.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.task-card.drop-before {
+  border-top: 3px solid var(--brand);
+}
+
+.task-card.drop-after {
+  border-bottom: 3px solid var(--brand);
+}
+
+.tasks.drop-column {
+  outline: 2px dashed #8eaed8;
+  outline-offset: 4px;
+  border-radius: 14px;
 }
 
 .task-card h4 {

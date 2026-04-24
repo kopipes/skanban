@@ -35,3 +35,9 @@ Data is saved in SQLite database file:
 `/Users/bob/Documents/Apps/skanban/skanban.db`
 
 The app state is stored through API endpoint `/api/state`.
+
+## Operations Protocol
+
+See source-of-truth and release process:
+
+`/Users/bob/Documents/Apps/skanban/PROTOCOL_SOURCE_OF_TRUTH.md`

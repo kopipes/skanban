@@ -39,17 +39,25 @@ body {
   margin-bottom: 28px;
 }
 
-.eyebrow {
-  margin: 0 0 6px;
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
 h1 {
   margin: 0;
   font-size: 2.4rem;
   line-height: 1;
+}
+
+.brand-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  line-height: 1;
+}
+
+.app-logo {
+  display: block;
+  width: auto;
+  height: 96px;
+  max-width: min(48vw, 461px);
+  object-fit: contain;
 }
 
 .header-actions {
@@ -572,6 +580,11 @@ textarea {
 
   h1 {
     font-size: 2rem;
+  }
+
+  .app-logo {
+    height: 80px;
+    max-width: min(52vw, 374px);
   }
 }
 

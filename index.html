@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Board</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="header">
+        <div>
+          <p class="eyebrow">workspace</p>
+          <h1>Project Board</h1>
+        </div>
+        <div class="header-actions">
+          <button id="undo-action" class="outline-btn" title="Undo last change">Back</button>
+          <button id="open-project-modal" class="outline-btn">+ New Project</button>
+          <button id="open-task-modal" class="outline-btn">+ Add Task</button>
+        </div>
+      </header>
+
+      <section id="view-menu" class="view-menu"></section>
+      <section id="stats-grid" class="stats-grid"></section>
+      <section id="project-tabs" class="project-tabs"></section>
+      <section id="project-line" class="project-line"></section>
+      <section id="board-grid" class="board-grid"></section>
+    </main>
+
+    <dialog id="project-modal" class="modal">
+      <form id="project-form" method="dialog" class="modal-content">
+        <div class="modal-head">
+          <h2 id="project-modal-title">Add Project</h2>
+          <button type="button" class="text-btn" data-close-modal="project-modal">Close</button>
+        </div>
+        <input id="project-id" type="hidden" />
+        <label>
+          Project Name
+          <input id="project-name" type="text" required placeholder="Website Redesign" />
+        </label>
+        <label>
+          Description
+          <textarea id="project-description" rows="3" placeholder="Project scope and objective"></textarea>
+        </label>
+        <div class="modal-grid">
+          <label>
+            Status
+            <select id="project-status">
+              <option value="planning">Planning</option>
+              <option value="active">Active</option>
+              <option value="on_hold">On Hold</option>
+              <option value="completed">Completed</option>
+            </select>
+          </label>
+          <label>
+            Deadline
+            <input id="project-deadline" type="date" />
+          </label>
+        </div>
+        <label>
+          Notes
+          <textarea id="project-notes" rows="3" placeholder="Dependencies, risks, notes"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button id="delete-project-btn" type="button" class="danger-btn">Delete Project</button>
+          <div class="action-right">
+            <button type="button" class="outline-btn" data-close-modal="project-modal">Cancel</button>
+            <button type="submit" class="solid-btn">Save Project</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="project-delete-modal" class="modal">
+      <form id="project-delete-form" method="dialog" class="modal-content">
+        <div class="modal-head">
+          <h2>Delete Project Confirmation</h2>
+          <button type="button" class="text-btn" data-close-modal="project-delete-modal">Close</button>
+        </div>
+        <input id="delete-project-id" type="hidden" />
+        <p class="danger-note">
+          This action cannot be undone with normal flow. Type <strong>DELETE PROJECT</strong> and enter password to continue.
+        </p>
+        <label>
+          Confirmation Text
+          <input id="delete-project-confirm-text" type="text" placeholder="DELETE PROJECT" required />
+        </label>
+        <label>
+          Password
+          <input id="delete-project-password" type="password" placeholder="Project delete password" required />
+        </label>
+        <div id="delete-project-error" class="error-text" aria-live="polite"></div>
+        <div class="modal-actions">
+          <button type="button" class="outline-btn" data-close-modal="project-delete-modal">Cancel</button>
+          <button type="submit" class="danger-btn">Delete Project</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="task-modal" class="modal">
+      <form id="task-form" method="dialog" class="modal-content">
+        <div class="modal-head">
+          <h2 id="task-modal-title">Add Task</h2>
+          <button type="button" class="text-btn" data-close-modal="task-modal">Close</button>
+        </div>
+        <input id="task-id" type="hidden" />
+        <label>
+          Task Title
+          <input id="task-title" type="text" required placeholder="Write unit tests for cart" />
+        </label>
+        <label>
+          Description
+          <textarea id="task-description" rows="3" placeholder="Expected output and acceptance criteria"></textarea>
+        </label>
+        <div class="modal-grid">
+          <label>
+            Status
+            <select id="task-status">
+              <option value="todo">To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="review">Review</option>
+              <option value="done">Done</option>
+            </select>
+          </label>
+          <label>
+            Progress (%)
+            <input id="task-progress" type="number" min="0" max="100" value="0" />
+          </label>
+        </div>
+        <div class="modal-grid">
+          <label>
+            Type
+            <select id="task-type">
+              <option value="task">task</option>
+              <option value="feat">feat</option>
+              <option value="bug">bug</option>
+              <option value="chore">chore</option>
+            </select>
+          </label>
+          <label>
+            Priority
+            <select id="task-priority">
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Progress Detail
+          <input id="task-progress-detail" type="text" placeholder="What has changed since last update?" />
+        </label>
+        <label>
+          Notes
+          <textarea id="task-notes" rows="3" placeholder="Risks, blockers, and implementation notes"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button id="delete-task-btn" type="button" class="danger-btn">Delete Task</button>
+          <div class="action-right">
+            <button type="button" class="outline-btn" data-close-modal="task-modal">Cancel</button>
+            <button type="submit" class="solid-btn">Save Task</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>

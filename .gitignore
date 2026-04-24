@@ -1,0 +1,4 @@
+skanban.db
+backups/
+*.db-shm
+*.db-wal

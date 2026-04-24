@@ -2,3 +2,4 @@ skanban.db
 backups/
 *.db-shm
 *.db-wal
+.DS_Store

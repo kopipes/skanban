@@ -291,6 +291,53 @@ button {
   gap: 18px;
 }
 
+.data-tools {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.data-tools-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.mini-btn {
+  border: 1px solid var(--stroke);
+  background: #f5f5f3;
+  color: #3a3d3a;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.mini-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mini-select {
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  background: #fdfdfc;
+  color: #3a3d3a;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  max-width: 220px;
+}
+
+.backup-status {
+  color: var(--muted);
+  font-size: 0.76rem;
+  min-height: 16px;
+}
+
 .board-col {
   background: var(--surface);
   border-radius: 18px;
@@ -612,5 +659,9 @@ textarea {
   .board-grid,
   .modal-grid {
     grid-template-columns: 1fr;
+  }
+
+  .data-tools {
+    justify-content: flex-start;
   }
 }

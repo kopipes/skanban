@@ -26,6 +26,13 @@
       <section id="project-tabs" class="project-tabs"></section>
       <section id="project-line" class="project-line"></section>
       <section id="board-grid" class="board-grid"></section>
+      <section id="data-tools" class="data-tools" aria-label="Database tools">
+        <span class="data-tools-label">Data</span>
+        <button id="backup-btn" class="mini-btn" type="button">Backup</button>
+        <select id="restore-select" class="mini-select" aria-label="Restore backup file"></select>
+        <button id="restore-btn" class="mini-btn" type="button">Restore</button>
+        <span id="backup-status" class="backup-status" aria-live="polite"></span>
+      </section>
     </main>
 
     <dialog id="project-modal" class="modal">

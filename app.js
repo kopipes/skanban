@@ -1,4 +1,7 @@
 const API_STATE_ENDPOINT = "/api/state";
+const API_BACKUPS_ENDPOINT = "/api/backups";
+const API_BACKUP_CREATE_ENDPOINT = "/api/backup";
+const API_BACKUP_RESTORE_ENDPOINT = "/api/restore";
 const LEGACY_LOCAL_STORAGE_KEYS = [
   "simple_kanban_process_v3",
   "simple_kanban_process_v2",
@@ -18,12 +21,17 @@ let currentProjectView = "active";
 let stateReady = false;
 let draggingTaskId = null;
 let draggingProjectId = null;
+let backupFiles = [];
 
 const statsGrid = document.getElementById("stats-grid");
 const viewMenu = document.getElementById("view-menu");
 const projectTabs = document.getElementById("project-tabs");
 const projectLine = document.getElementById("project-line");
 const boardGrid = document.getElementById("board-grid");
+const backupButton = document.getElementById("backup-btn");
+const restoreSelect = document.getElementById("restore-select");
+const restoreButton = document.getElementById("restore-btn");
+const backupStatus = document.getElementById("backup-status");
 
 const openProjectModalButton = document.getElementById("open-project-modal");
 const openTaskModalButton = document.getElementById("open-task-modal");
@@ -74,6 +82,29 @@ openTaskModalButton.addEventListener("click", () => {
     return;
   }
   openTaskModal();
+});
+
+backupButton.addEventListener("click", async () => {
+  if (!stateReady) {
+    return;
+  }
+  await createDatabaseBackup();
+});
+
+restoreButton.addEventListener("click", async () => {
+  if (!stateReady) {
+    return;
+  }
+  const selectedBackup = restoreSelect.value;
+  if (!selectedBackup) {
+    setBackupStatus("Select backup file first.");
+    return;
+  }
+  const ok = confirm(`Restore database from ${selectedBackup}? This will replace current data.`);
+  if (!ok) {
+    return;
+  }
+  await restoreDatabaseBackup(selectedBackup);
 });
 
 viewMenu.addEventListener("click", (event) => {
@@ -470,6 +501,7 @@ function render() {
   renderProjectLine(project);
   renderBoard(project);
   openTaskModalButton.disabled = currentProjectView === "archive" || !project;
+  updateDataToolsState();
 }
 
 function renderViewMenu() {
@@ -807,12 +839,14 @@ async function initApp() {
     }
     stateReady = true;
     render();
+    await refreshBackupList();
   } catch (error) {
     console.error("Failed to initialize state from SQLite API:", error);
     const legacyState = readLegacyLocalState();
     state = normalizeState(legacyState || seedState());
     stateReady = true;
     render();
+    setBackupStatus("SQLite server is not reachable.");
     alert("SQLite server is not reachable. Run server.py and refresh this page.");
   }
 }
@@ -829,6 +863,7 @@ function renderLoadingState() {
   `;
   boardGrid.innerHTML = "";
   openTaskModalButton.disabled = true;
+  updateDataToolsState();
 }
 
 async function fetchStateFromServer() {
@@ -840,6 +875,15 @@ async function fetchStateFromServer() {
   return data.state || null;
 }
 
+async function fetchBackupsFromServer() {
+  const response = await fetch(API_BACKUPS_ENDPOINT, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response, `GET ${API_BACKUPS_ENDPOINT} failed with ${response.status}`));
+  }
+  const data = await response.json();
+  return Array.isArray(data.backups) ? data.backups : [];
+}
+
 async function persistStateToServer(nextState) {
   const response = await fetch(API_STATE_ENDPOINT, {
     method: "PUT",
@@ -849,6 +893,115 @@ async function persistStateToServer(nextState) {
   if (!response.ok) {
     throw new Error(`PUT ${API_STATE_ENDPOINT} failed with ${response.status}`);
   }
+}
+
+async function createDatabaseBackup() {
+  setBackupStatus("Creating backup...");
+  backupButton.disabled = true;
+  restoreButton.disabled = true;
+  try {
+    const response = await fetch(API_BACKUP_CREATE_ENDPOINT, { method: "POST" });
+    if (!response.ok) {
+      throw new Error(await readApiError(response, `POST ${API_BACKUP_CREATE_ENDPOINT} failed with ${response.status}`));
+    }
+    const data = await response.json();
+    backupFiles = Array.isArray(data.backups) ? data.backups : backupFiles;
+    renderBackupOptions();
+    setBackupStatus(`Backup created: ${data.backup_file || "-"}`);
+  } catch (error) {
+    console.error("Failed creating backup:", error);
+    setBackupStatus(`Backup failed: ${error.message}`);
+  } finally {
+    updateDataToolsState();
+  }
+}
+
+async function restoreDatabaseBackup(backupFile) {
+  setBackupStatus(`Restoring ${backupFile}...`);
+  backupButton.disabled = true;
+  restoreButton.disabled = true;
+  try {
+    const response = await fetch(API_BACKUP_RESTORE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ backup_file: backupFile }),
+    });
+    if (!response.ok) {
+      throw new Error(await readApiError(response, `POST ${API_BACKUP_RESTORE_ENDPOINT} failed with ${response.status}`));
+    }
+    const data = await response.json();
+    const restoredState = data.state;
+    if (restoredState && Array.isArray(restoredState.projects)) {
+      state = normalizeState(restoredState);
+    } else {
+      state = normalizeState(seedState());
+      saveState();
+    }
+    backupFiles = Array.isArray(data.backups) ? data.backups : backupFiles;
+    renderBackupOptions();
+    render();
+    setBackupStatus(`Restore success: ${data.restored_from || backupFile}`);
+  } catch (error) {
+    console.error("Failed restoring backup:", error);
+    setBackupStatus(`Restore failed: ${error.message}`);
+  } finally {
+    updateDataToolsState();
+  }
+}
+
+async function refreshBackupList() {
+  try {
+    backupFiles = await fetchBackupsFromServer();
+    renderBackupOptions();
+    if (!backupFiles.length) {
+      setBackupStatus("No backups yet.");
+    } else {
+      setBackupStatus(`Latest: ${backupFiles[0]}`);
+    }
+  } catch (error) {
+    console.error("Failed fetching backup list:", error);
+    setBackupStatus("Backup list unavailable.");
+  } finally {
+    updateDataToolsState();
+  }
+}
+
+function renderBackupOptions() {
+  const previousValue = restoreSelect.value;
+  if (!backupFiles.length) {
+    restoreSelect.innerHTML = `<option value="">No backups</option>`;
+    restoreSelect.value = "";
+    return;
+  }
+  restoreSelect.innerHTML = backupFiles
+    .map((backupFile) => `<option value="${escapeHtml(backupFile)}">${escapeHtml(backupFile)}</option>`)
+    .join("");
+  if (backupFiles.includes(previousValue)) {
+    restoreSelect.value = previousValue;
+  }
+}
+
+function setBackupStatus(message) {
+  backupStatus.textContent = message;
+}
+
+function updateDataToolsState() {
+  backupButton.disabled = !stateReady;
+  const hasBackup = backupFiles.length > 0;
+  restoreSelect.disabled = !stateReady || !hasBackup;
+  restoreButton.disabled = !stateReady || !hasBackup;
+}
+
+async function readApiError(response, fallback) {
+  try {
+    const data = await response.json();
+    if (data && typeof data.error === "string" && data.error.trim()) {
+      return data.error.trim();
+    }
+  } catch (_) {
+    return fallback;
+  }
+  return fallback;
 }
 
 function readLegacyLocalState() {

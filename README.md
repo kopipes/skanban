@@ -28,6 +28,7 @@ python3 server.py --host 127.0.0.1 --port 4173
 9. Use top menu `Active` / `Archive` to switch project lists.
 10. Project with status `Completed` will automatically move to `Archive`.
 11. Delete project is available in project `Details`, with required confirmation text `DELETE PROJECT` and password `Shushitei99`.
+12. Use small `Backup` and `Restore` controls at the bottom to snapshot and restore SQLite data.
 
 ## Data
 
